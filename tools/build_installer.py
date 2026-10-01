@@ -140,7 +140,8 @@ def render(project: dict) -> str:
 --
 -- How to use:
 --   1. Open your place in Roblox Studio. Do not press Play.
---   2. Save a backup copy first (File > Save to File As...).
+--   2. Save the place, then make a backup copy of the saved file
+--      (docs/SETUP.md, "Backups and Git").
 --   3. Open View > Command Bar, paste this whole file into it, press Enter.
 --   4. Check the Output window for the "installed" message, then press Play.
 --

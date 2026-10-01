@@ -182,12 +182,13 @@ and you have saved a backup.
 3. Click in the Command Bar, paste with Cmd+V and press Return.
 4. The Output window should show
    `Campus Delivery Dash installed: 11 scripts. Save the place, then press Play.`
-   Save the place.
+   Save the place. If that line does not appear (a red error, or nothing at
+   all, for example because the paste was cut short), use Route C below.
 
 Edit > Undo reverses the whole install in one step. The installer replaces
 only the three folders above and leaves the rest of the place, map included.
 
-### Route C (optional, for later): Rojo
+### Route C (optional): Rojo
 
 [Rojo](https://rojo.space) turns `src/` into Roblox scripts, following
 `default.project.json`. `tools/install-dev-tools.sh` already put it in
@@ -280,8 +281,11 @@ accept your account password there. Create a token instead: on github.com,
 Settings > Developer settings > Personal access tokens > Fine-grained tokens.
 Give it access to this repository only, with **Contents: Read and write**,
 and paste it as the password (Terminal shows nothing while you paste; press
-Return). macOS Keychain remembers it. Never paste the token into a file,
-a chat or an agent prompt.
+Return). macOS Keychain remembers it until the token expires (the form's
+default is 30 days; you can choose longer). When a later `git push` says
+`Authentication failed`, create a new token the same way and paste it at the
+next password prompt. Never paste the token into a file, a chat or an agent
+prompt.
 
 **Code checkpoints.** Scripts, docs and tools are kept in Git. After a change
 passes `tools/check.sh` and you have played it, first look at what would be

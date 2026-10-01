@@ -6,7 +6,8 @@
 --
 -- How to use:
 --   1. Open your place in Roblox Studio. Do not press Play.
---   2. Save a backup copy first (File > Save to File As...).
+--   2. Save the place, then make a backup copy of the saved file
+--      (docs/SETUP.md, "Backups and Git").
 --   3. Open View > Command Bar, paste this whole file into it, press Enter.
 --   4. Check the Output window for the "installed" message, then press Play.
 --
@@ -992,6 +993,9 @@ return MapBuilder
 --                    address id; an optional "DisplayName" string attribute is
 --                    what players see.
 --
+-- StartPad, Depot and every destination part must be Anchored (or welded to
+-- an anchored part), or the game does not start (see isFixed).
+--
 -- This module also creates the ProximityPrompts players use at the Depot and
 -- at each destination.
 
@@ -1277,9 +1281,10 @@ type Session = {
 	bestValue: IntValue, -- leaderstats "Best" shown in the player list
 }
 
--- What players are told when the server refuses an action. Reasons that are
--- left out are not sent as messages: AlreadyRunning only happens when a
--- button is pressed twice, and TimeUp is explained by the results panel.
+-- What players are told when the server refuses an action. Reasons left out
+-- of this table get no message from refuse: AlreadyRunning only happens when
+-- a button is pressed twice, TimeUp is explained by the results panel, and
+-- WrongTarget builds its own message in onDestinationTriggered.
 local MESSAGES: { [string]: string } = {
 	NotRunning = "Press Start to begin a delivery.",
 	AlreadyCarrying = "You are already carrying a package.",
@@ -1371,7 +1376,21 @@ local function push(session: Session, message: string?)
 	remotes.RoundState:FireClient(session.player, snapshot(session, message))
 end
 
+-- A prompt the player finished this soon after their time ran out is
+-- refused without a message: the results panel already explains it.
+local LATE_PROMPT_SECONDS = 2
+
 local function refuse(session: Session, reason: string)
+	local round = session.round
+	local deadline = round.deadline
+	if
+		reason == "NotRunning"
+		and round.phase == "TimeUp"
+		and deadline ~= nil
+		and now() < deadline + Config.GRACE_SECONDS + LATE_PROMPT_SECONDS
+	then
+		return
+	end
 	local message = MESSAGES[reason]
 	if message then
 		push(session, message)
@@ -1404,17 +1423,19 @@ local function scheduleTimeUp(session: Session, roundId: number)
 	task.delay(Config.ROUND_SECONDS + Config.GRACE_SECONDS, check)
 end
 
--- Where a character stands when a round starts: the next StartPad spot,
--- facing the Depot.
+-- Where a character stands when a round starts: just above the StartPad,
+-- facing the Depot, on the next of the START_SPOTS.
 local function nextStartCFrame(): CFrame
 	nextStartSpot = nextStartSpot % #START_SPOTS + 1
 	local pad = mapParts.startPad
-	-- Stay on the pad even if a hand-made pad is narrow.
-	local maxSideways = math.max(0, pad.Size.X / 2 - 1.5)
-	local sideways = math.clamp(START_SPOTS[nextStartSpot], -maxSideways, maxSideways)
-	local position = pad.CFrame:PointToWorldSpace(Vector3.new(sideways, pad.Size.Y / 2 + 3, 0))
 	local depot = mapParts.depot.Position
-	return CFrame.lookAt(position, Vector3.new(depot.X, position.Y, depot.Z))
+	local top = pad.Position + Vector3.new(0, pad.Size.Y / 2 + 3, 0)
+	local facing = CFrame.lookAt(top, Vector3.new(depot.X, top.Y, depot.Z))
+	-- Step sideways, across the direction to the Depot, but stay on the pad
+	-- even if a hand-made pad is narrow (or is not a flat box).
+	local maxSideways = math.max(0, math.min(pad.Size.X, pad.Size.Z) / 2 - 1.5)
+	local sideways = math.clamp(START_SPOTS[nextStartSpot], -maxSideways, maxSideways)
+	return facing * CFrame.new(sideways, 0, 0)
 end
 
 local function startRound(session: Session)
@@ -1857,6 +1878,15 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 		else
 			hideMessage()
 			statusLabel.Text = message or ""
+			if message then
+				-- Clear it after a while; any newer render cancels this.
+				local token = messageToken
+				task.delay(MESSAGE_SECONDS, function()
+					if messageToken == token then
+						statusLabel.Text = ""
+					end
+				end)
+			end
 		end
 	end
 

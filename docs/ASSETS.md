@@ -155,7 +155,7 @@ Before you start:
    your props have nowhere to live.
    Follow [Make the map editable](SETUP.md#make-the-map-editable-optional).
 2. **Save a dated backup** of the place, such as
-   `CampusDelivery-before-props.rbxl` ([Backups and Git](SETUP.md#backups-and-git)).
+   `CampusDelivery-2026-10-01-before-props.rbxl` ([Backups and Git](SETUP.md#backups-and-git)).
    Map edits live in the place file, not in Git.
 3. **One agent at a time** edits the live place. If Claude Code swaps props
    through Studio's MCP connection, ask it to keep the map contract and

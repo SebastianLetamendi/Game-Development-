@@ -250,6 +250,15 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 		else
 			hideMessage()
 			statusLabel.Text = message or ""
+			if message then
+				-- Clear it after a while; any newer render cancels this.
+				local token = messageToken
+				task.delay(MESSAGE_SECONDS, function()
+					if messageToken == token then
+						statusLabel.Text = ""
+					end
+				end)
+			end
 		end
 	end
 

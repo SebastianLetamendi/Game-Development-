@@ -10,7 +10,8 @@ cases cover every test [`PROJECT-BRIEF.md`](../PROJECT-BRIEF.md) requires.
    copy ([`SETUP.md`](SETUP.md)). Do T1 to T4 (the core round) first.
 2. Record each result in [`STATUS.md`](../STATUS.md) with the table at the
    end: **pass**, **fail** plus what happened (copy red or orange Output
-   lines exactly), or **not tried**. Also list failures under "Known
+   lines exactly, but replace your Roblox username with Player1: the
+   repository is public), or **not tried**. Also list failures under "Known
    failures and risks".
 3. Never mark a case as passed unless you saw it pass yourself. An agent
    saying "this should work" is not a result.
@@ -205,8 +206,8 @@ were too slow: retry before recording a fail.
    `require(game.ServerScriptService.CampusDeliveryDash.MapBuilder).build(workspace)`
 2. Rename Workspace > CampusMap > Depot to `DepotX`. Press **Play**, wait
    30 seconds, then stop, rename it back to `Depot` and play again.
-3. Untick **Anchored** on Workspace > CampusMap > Destinations > Gym, press
-   **Play**, then stop and tick it again.
+3. Press **Stop**. Untick **Anchored** on Workspace > CampusMap >
+   Destinations > Gym, press **Play**, then stop and tick it again.
 
 **Expected:** the first Play warns
 `[CampusDeliveryDash] Map problem: Workspace.CampusMap needs a part named Depot`
@@ -222,8 +223,9 @@ around by a cheater.
 ## T15. Instance streaming
 **Goal:** prompts and the beacon work far away with instance streaming
 (Roblox sends players only nearby parts of the world). **Milestones:** 1, 2.
-1. In Edit mode, tick Workspace's **StreamingEnabled** in Properties if it
-   is off, and untick it after the test. With an editable map (T14), check
+1. In Edit mode, check that Workspace's **StreamingEnabled** is ticked in
+   Properties (new places have it on). If you had to tick it, untick it
+   after the test. With an editable map (T14), check
    that CampusMap's **ModelStreamingMode** is `Persistent`.
 2. Play until you deliver to a far building, such as North Dorm.
 

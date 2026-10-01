@@ -6,7 +6,8 @@
 # file is rejected instead of executed. To upgrade a tool, change its version
 # and checksum together and run tools/check.sh afterwards.
 #
-# Supported: macOS on Apple Silicon (M1 or newer) and Linux x86_64 (CI).
+# Supported: macOS 26 or newer on Apple Silicon (the pinned Luau build needs
+# it) and Linux x86_64 (CI).
 #
 # Usage: tools/install-dev-tools.sh
 

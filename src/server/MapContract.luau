@@ -11,6 +11,9 @@
 --                    address id; an optional "DisplayName" string attribute is
 --                    what players see.
 --
+-- StartPad, Depot and every destination part must be Anchored (or welded to
+-- an anchored part), or the game does not start (see isFixed).
+--
 -- This module also creates the ProximityPrompts players use at the Depot and
 -- at each destination.
 

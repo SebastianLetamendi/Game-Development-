@@ -194,7 +194,8 @@ map contract: `CampusMap` must hold `StartPad`, `Depot` and a
 
 **Q6.1 You replace the Library mailbox part with a Model. What does it need?**
 <details><summary>Answer</summary>The name <code>Library</code>, a place in <code>Destinations</code> and a
-<code>PrimaryPart</code>. A <code>DisplayName</code> attribute is optional.</details>
+<code>PrimaryPart</code> that is Anchored (or welded to an anchored part), or the game does not
+start. A <code>DisplayName</code> attribute is optional.</details>
 
 **Q6.2 A cheater changes a prompt's `TargetId` on their own device. Can they deliver anywhere?**
 <details><summary>Answer</summary>No. The change stays on their device, and the server does not use the attribute.</details>
@@ -412,8 +413,10 @@ the Studio installer as out of date until you run `tools/check.sh --fix`.
      duplicate is skipped with a warning.
    - [ ] It is on the ground (`GROUND_SIZE` is 640, so stay well inside
      ±320) and as far out as the others, 225 to 255 studs from the centre.
-   - [ ] In Studio, its path, trees and hedge gap appear by themselves;
-     check that they miss the other paths and the benches.
+   - [ ] Run `tools/check.sh --fix` and reinstall ([`SETUP.md`](SETUP.md))
+     into the place you test in. Then in Studio, its path, trees and hedge
+     gap appear by themselves; check that they miss the other paths and the
+     benches.
    - [ ] If your place has a saved `CampusMap`, test in a backup copy
      without it, or MapBuilder will not run.
 
