@@ -1,0 +1,23 @@
+{
+	"name": "CampusDeliveryDash",
+	"tree": {
+		"$className": "DataModel",
+		"ReplicatedStorage": {
+			"CampusDeliveryDash": {
+				"$path": "src/shared"
+			}
+		},
+		"ServerScriptService": {
+			"CampusDeliveryDash": {
+				"$path": "src/server"
+			}
+		},
+		"StarterPlayer": {
+			"StarterPlayerScripts": {
+				"CampusDeliveryDash": {
+					"$path": "src/client"
+				}
+			}
+		}
+	}
+}
