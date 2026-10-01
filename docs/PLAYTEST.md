@@ -190,9 +190,9 @@ before the next tester.
 
 | Finding | Change | Watch out |
 |---|---|---|
-| Everyone finishes with lots of time left, or nobody finishes (timer too generous or too harsh) | `ROUND_SECONDS` (90) | `tests/Config.spec.luau` asserts 90 and the brief promises 90 seconds, so change both in the same task. The Output line `Ready: 6 destinations, 90-second rounds.` and docs that say 90 seconds or 1:30 (README.md, TEST-PLAN.md) change too. |
-| Fast and slow deliveries score about the same (scores feel flat) | `POINTS_PER_SECOND_LEFT` (10), compared with `BASE_POINTS` (100) | Score = `BASE_POINTS + floor(secondsLeft) * POINTS_PER_SECOND_LEFT`. Update the worked examples in [ARCHITECTURE.md](ARCHITECTURE.md) and test plan T2. |
-| Testers stand at the Depot or a mailbox but cannot trigger the prompt | `PROMPT_DISTANCE` (10 studs) | First check they were in the right place: `Marker.luau` hides every prompt except the one the current step needs. The server's distance check adds `PROMPT_DISTANCE_TOLERANCE`, so it follows automatically. The hold time (`HoldDuration = 0.25`) is in `MapContract.luau`, not Config. |
+| Everyone finishes with lots of time left, or nobody finishes (timer too generous or too harsh) | `ROUND_SECONDS` (90) | `tests/Config.spec.luau` asserts 90 and the brief promises 90 seconds, so change both in the same task. The Output line `Ready: 6 destinations, 90-second rounds.` follows Config by itself, but every doc that gives the round length must change too, including the T2 score example in TEST-PLAN.md. List them with `grep -rnE '90-second\|90 seconds\|1:30' --include='*.md' .` |
+| Fast and slow deliveries score about the same (scores feel flat) | `POINTS_PER_SECOND_LEFT` (10), compared with `BASE_POINTS` (100) | Score = `BASE_POINTS + floor(secondsLeft) * POINTS_PER_SECOND_LEFT`. The brief states "Score = 100 points + 10 points for every whole second left", so change `PROJECT-BRIEF.md` in the same task. Also update the worked examples in [ARCHITECTURE.md](ARCHITECTURE.md), test plan T2, [CODE-TOUR.md](CODE-TOUR.md) (the 520 example and its quiz) and the comment above `scoreFor` in `RoundLogic.luau`. |
+| Testers stand at the Depot or a mailbox but cannot trigger the prompt | `PROMPT_DISTANCE` (10 studs) | First check they were in the right place: `Marker.luau` hides every prompt except the one the current step needs. The server's distance check adds `PROMPT_DISTANCE_TOLERANCE`, so it follows automatically. The hold time is `PROMPT_HOLD_SECONDS` (0.25) in Config; keep it well below `GRACE_SECONDS` (0.75), which `tests/Config.spec.luau` checks. |
 | An honest tester sees "Delivery refused: that trip was impossibly fast." | Nothing yet | With the default map and walk speed this should not happen (`MAX_TRAVEL_SPEED` is 32, walking is 16). Record it as a bug instead of raising the number. |
 
 When the problem is finding the way rather than a number:
@@ -209,7 +209,8 @@ When the problem is finding the way rather than a number:
 - **Words on screen:** the title text is in `Hud.luau` (`render`), the
   objective lines such as "Pick up the package at the Depot" are in
   `RoundService.luau` (`snapshot`), and refusal messages are in its
-  `MESSAGES` table.
+  `MESSAGES` table, except "Wrong address. This package goes to ...",
+  which is built in `onDestinationTriggered`.
 
 MapBuilder only runs when Workspace has no `CampusMap`. If your place has a
 saved `CampusMap`, edit that in Studio instead, keep the

@@ -43,7 +43,7 @@ line, demonstrate, and use as material for build-in-public videos.
 ### Controls
 
 - Desktop: normal Roblox movement; hold **E** at a prompt; click the button.
-- Touch (phone or tablet): on-screen joystick; tap the prompt; tap the button.
+- Touch (phone or tablet): on-screen joystick; touch and hold the prompt briefly; tap the button.
 
 ### Content rules
 
@@ -90,8 +90,10 @@ real results in `STATUS.md`. The step-by-step cases are in
    limited audience (see `docs/PLAYTEST.md`). Check Roblox's current
    publishing requirements first.
 3. Fix the biggest confusion testers hit before adding anything new.
-4. Only after players come back on their own, consider saved best scores, a
-   fair cosmetic extra, or a second map.
+4. Once rounds work in playtests, saved best scores (DataStore, with
+   failure handling and no saving every frame) can be their own task.
+   Only after players come back on their own, consider a fair cosmetic
+   extra or a second map.
 
 ## Success looks like
 

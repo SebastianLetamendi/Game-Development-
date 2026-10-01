@@ -120,7 +120,9 @@ Depot, green over the mailbox), the place name and distance in studs, and a
 guide line, and hides every prompt except the one the current step needs.
 For a "before" without changing code, run test T16's Command Bar line in a
 player window: it switches every prompt on, as if `Marker` did not hide
-them. A change made as a task, such as a taller `BEACON_HEIGHT`, works too:
+them. `Marker` hides them again with each update from the server (start,
+pickup, delivery, any message), so run the line again just before each
+shot. A change made as a task, such as a taller `BEACON_HEIGHT`, works too:
 record the old version before Claude Code starts.
 
 ### 2. A funny bug and its cause
@@ -180,13 +182,14 @@ have run T13 yourself.
 - **No revenue claims.** No promises or hints of earnings you have not made.
 - **Disclose realistic synthetic content where the platform requires it**,
   such as a realistic AI voice or person. Read the current rules for
-  [YouTube](https://support.google.com/youtube/answer/14328491) and
-  [TikTok](https://support.tiktok.com/en/using-tiktok/creating-videos/ai-generated-content).
+  [YouTube](https://support.google.com/youtube/answer/14328491?hl=en-au) and
+  [TikTok](https://newsroom.tiktok.com/new-labels-for-disclosing-ai-generated-content-ca?lang=en-CA).
 - **Only owned or properly licensed music, visuals and voices.** Your own
   voice and game footage are the simplest choice.
 - **No repetitive, mass-produced or barely changed content.** Original
   AI-assisted videos may qualify for monetisation, but mass-produced videos
-  or the same clip re-posted with small changes can fail the rules.
+  or the same clip re-posted with small changes can fail the rules
+  ([YouTube's monetisation policies](https://support.google.com/youtube/answer/1311392?hl=en)).
 
 ## Monetisation thresholds
 
@@ -197,8 +200,8 @@ have run T13 yourself.
 
 These rules change, and age and region rules apply. Check the official
 pages before relying on them:
-[TikTok Creator Rewards](https://support.tiktok.com/en/business-and-creator/creator-rewards-program/creator-rewards-program),
-[YouTube Partner Program](https://support.google.com/youtube/answer/72851).
+[TikTok Creator Rewards](https://newsroom.tiktok.com/introducing-the-new-creator-rewards-program?lang=en),
+[YouTube Partner Program](https://support.google.com/youtube/answer/72851?hl=en).
 
 ## Video log
 
@@ -215,6 +218,6 @@ channels from this public repository. Never add tester names or earnings.
 ## How often
 
 Aim for 1 to 3 good videos a week while you learn. Coursework comes first.
-Video gets about an hour a week in the plan, so record during sessions you
-were doing anyway and keep edits short. A week without real progress is a
+Budget about an hour a week for video, so record during sessions you were
+doing anyway and keep edits short. A week without real progress is a
 week without a video, and that is fine.

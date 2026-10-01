@@ -13,8 +13,9 @@ out. Then try to beat your best score.
 
 You need a Mac or PC with [Roblox Studio](https://create.roblox.com/docs/studio/setup).
 
-1. In Studio, create a new **Baseplate** place and save a backup copy
-   (File > Save to File As...).
+1. In Studio, create a new **Baseplate** place, save it (File > Save to
+   File As...) and make a backup copy
+   ([Backups and Git](docs/SETUP.md#backups-and-git)).
 2. Put the scripts into the place using one of these routes (details in
    [`docs/SETUP.md`](docs/SETUP.md)):
    - **With Claude Code and Studio's MCP connection:** ask Claude Code to
@@ -22,12 +23,15 @@ You need a Mac or PC with [Roblox Studio](https://create.roblox.com/docs/studio/
    - **One paste, no extra tools:** open View > Command Bar, paste the whole
      of [`dist/InstallIntoStudio.luau`](dist/InstallIntoStudio.luau) and
      press Enter.
-   - **With Rojo:** run `rojo build default.project.json -o CampusDeliveryDash.rbxlx`
-     and open the file, or use `rojo serve` with the Rojo Studio plugin.
+   - **With Rojo** (Mac, Route C in [`docs/SETUP.md`](docs/SETUP.md)): run
+     `tools/install-dev-tools.sh` once, then
+     `.tools/bin/rojo build default.project.json -o CampusDeliveryDash.rbxlx`
+     and open the file, or use `.tools/bin/rojo serve` with the Rojo Studio plugin.
 3. Press **Play**. The greybox campus is built automatically, and the
    Output window should say `[CampusDeliveryDash] Ready`.
-4. Click **Start delivery**, walk to the Depot, hold **E** at the prompt,
-   follow the green beacon and deliver the package.
+4. Click **Start delivery**, walk to the Depot, hold **E** at the prompt
+   (touch and hold it on a phone), follow the green beacon and deliver the
+   package.
 
 Then work through [`docs/TEST-PLAN.md`](docs/TEST-PLAN.md).
 

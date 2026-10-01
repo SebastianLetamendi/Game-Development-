@@ -33,8 +33,9 @@ The owner connects Studio to you through Studio's built-in MCP server
 - Begin every session with a read-only look, for example listing the
   objects in the open place, before changing anything.
 - Before installing scripts or making a larger change, ask the owner to
-  save a backup copy of the place (File > Save to File As..., with a name
-  like `CampusDelivery-before-timer.rbxl`), and wait until they confirm.
+  save the place and then make a dated backup copy of the file (see
+  "Backups and Git" in `docs/SETUP.md`), such as
+  `CampusDelivery-2026-10-01-before-timer.rbxl`, and wait until they confirm.
 - To put the code into Studio, run the contents of
   `dist/InstallIntoStudio.luau` in Edit mode if your Studio tools can run
   Luau there. Otherwise, follow one of the other routes in `docs/SETUP.md`.

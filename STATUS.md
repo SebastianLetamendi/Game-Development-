@@ -31,18 +31,29 @@ Initial project setup:
   `dist/InstallIntoStudio.luau`.
 - Tests in `tests/`, checking tools in `tools/`, and the GitHub Actions
   workflow `.github/workflows/checks.yml`.
+- Fixes from an independent review of the code and docs: a longer grace
+  window that covers the prompt hold, lint warnings now fail the checks,
+  map parts must be anchored, separate StartPad spots for players who start
+  together, feedback shown inside the results panel, the countdown moved to
+  the centre of the top bar, and corrected setup steps (Git sign-in, the
+  macOS version the tools need).
 
 ## Checks actually run
 
 `tools/check.sh` on 2026-10-01 (Linux x86_64), all passed:
 
 - StyLua formatting check
-- 30 Luau unit tests (Config and RoundLogic)
+- 36 Luau unit tests (Config and RoundLogic)
 - luau-lsp strict type checking and lint against the Roblox API definitions
+  (lint warnings count as failures)
 - `rojo build` of `default.project.json`
 - Studio installer is up to date with `src/`
-- 5 Python tests, including running the generated installer against a fake
-  Roblox API and comparing every script with `src/`
+- 6 Python tests, including running the generated installer against a fake
+  Roblox API and comparing every script with `src/`, and checking string
+  escaping with the real Luau interpreter
+
+The checks have not been run on a Mac yet. The pinned Luau build for macOS
+needs macOS 26 or newer.
 
 ## Not tested yet
 
@@ -57,6 +68,13 @@ and how the 90-second timer feels.
   walking per delivery). Playtests may show the timer is too generous.
 - Gamepad players have no dedicated button for Start; Roblox's built-in UI
   navigation is needed to press it.
+- A cheater can still teleport and wait out the minimum trip time; this is
+  an accepted risk while there are no prizes or saved data
+  (`docs/ARCHITECTURE.md`, "Security model").
+- Two things depend on Studio behaviour that could not be checked here:
+  whether the Command Bar accepts the whole installer in one paste, and
+  whether Claude Code's Studio MCP tools can run it (`docs/SETUP.md` has a
+  fallback for each).
 
 ## Next task
 

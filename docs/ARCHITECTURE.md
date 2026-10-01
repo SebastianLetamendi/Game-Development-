@@ -50,13 +50,18 @@ From `Delivered` or `TimeUp`, pressing the button starts a new round.
 
 - **Start**: the server picks a destination at random (never the same one
   twice in a row when there is a choice), sets the deadline to
-  `now + ROUND_SECONDS` and moves the character to the `StartPad`.
+  `now + ROUND_SECONDS` and moves the character to the `StartPad`, facing
+  the Depot. It uses three spots side by side in turn, so players who start
+  together do not land inside each other.
 - **Pick up**: at the Depot prompt. Allowed only in `ToPickup`.
 - **Deliver**: at the assigned destination's prompt. Allowed only in
   `ToDropoff`, only at the assigned destination, and only if the trip took
   at least `distance(depot, destination) / MAX_TRAVEL_SPEED` seconds.
-- **Time up**: the server ends the round `GRACE_SECONDS` after the deadline.
-  A delivery inside the grace window still counts and scores `BASE_POINTS`.
+- **Time up**: the server ends the round `GRACE_SECONDS` (0.75) after the
+  deadline. A prompt only fires once its hold (`PROMPT_HOLD_SECONDS`, 0.25)
+  finishes, and then the message must reach the server, so the grace window
+  covers both. A delivery inside the grace window still counts and scores
+  `BASE_POINTS`.
 - **Score**: `BASE_POINTS + floor(secondsLeft) * POINTS_PER_SECOND_LEFT`,
   calculated only on the server. With the defaults, 42.7 seconds left
   scores 100 + 42 × 10 = 520.
@@ -101,12 +106,20 @@ The client is untrusted: anyone can run modified client code. So:
    the part's size`), in the right phase, at the right destination.
 4. A delivery that is faster than `MAX_TRAVEL_SPEED` allows is refused as
    teleporting.
-5. Hiding prompts on the client (in `Marker`) is only for clarity. The server
+5. `StartPad`, `Depot` and every destination must be anchored. An
+   unanchored part is simulated by a nearby player's computer, so a cheater
+   could drag a mailbox next to the Depot; `MapContract.find` refuses to
+   start the game instead.
+6. Hiding prompts on the client (in `Marker`) is only for clarity. The server
    never relies on it.
 
 What this does not stop: a cheater who moves at a believable speed but
-ignores the route. With no prizes or saved data in this version, that is an
-accepted risk. Revisit it before adding paid items or saved progress.
+ignores the route, or who teleports and simply waits
+`distance / MAX_TRAVEL_SPEED` before delivering (refused attempts can be
+retried, and the trip from the StartPad to the Depot is not timed). That
+scores like a straight-line run at twice walking speed. With no prizes or
+saved data in this version, that is an accepted risk. Revisit it before
+adding paid items or saved progress.
 
 ## Map contract
 
@@ -124,6 +137,9 @@ Workspace
         └── ...          optional string attribute DisplayName = what players see
 ```
 
+- `StartPad`, `Depot` and the destination parts must be **Anchored** (or
+  welded to an anchored part). Otherwise the game does not start and the
+  Output window says which part to fix.
 - If `Workspace.CampusMap` does not exist when the server starts,
   `MapBuilder` builds the greybox version for that test only.
 - To edit the map in Studio, build it once in Edit mode with the Command Bar
@@ -138,9 +154,12 @@ Workspace
 
 ## Client presentation
 
-- `Hud` shows the title panel while idle, the objective and the countdown
-  while running (red for the last 10 seconds), and a results panel after a
-  round. The button works with mouse and touch.
+- `Hud` shows the title panel while idle, a top bar during a round (the
+  countdown in the middle, red for the last 10 seconds, with the objective
+  under it, clear of Roblox's player list and chat), and a results panel
+  after a round. Feedback from the server appears on a message line under
+  the top bar during a round, and in yellow inside the panel otherwise. The
+  button works with mouse and touch.
 - `Marker` shows a beacon (orange for the Depot, green for the destination),
   a label with the place name and distance, and a guide line from the
   character. It enables only the prompt that the current step needs.
@@ -155,7 +174,8 @@ Workspace
 2. Luau unit tests: `tests/run.luau` (Config and RoundLogic).
 3. Strict type checking and lint with luau-lsp, Roblox API definitions and a
    Rojo sourcemap. This catches misspelled properties, wrong argument types,
-   invalid class names and unused variables.
+   invalid class names, deprecated APIs and unused variables (`.luaurc`
+   sets `lintErrors`, so lint warnings fail the check too).
 4. `rojo build`, which proves the project file is valid.
 5. The Studio installer is up to date with `src/`.
 6. Python tests, including running the generated installer against a fake
@@ -168,7 +188,8 @@ phone, two players) is checked by hand with `docs/TEST-PLAN.md`.
 
 - Best scores are not saved between sessions (no DataStore yet).
 - No sound effects, music or particle effects.
-- A gamepad can play, but the Start button needs a mouse, touch or the
-  gamepad's on-screen cursor; there is no dedicated controller shortcut.
+- A gamepad can move and use prompts, but there is no controller shortcut
+  for the Start button; it needs a mouse, touch, or Roblox's built-in UI
+  navigation.
 - The greybox map is plain parts. Blender props replace pieces later
   (`docs/ASSETS.md`).

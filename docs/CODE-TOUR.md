@@ -50,10 +50,12 @@ counts lives in RoundService on the server. The client scripts do not even requi
 ## 2. Config.luau
 
 [`src/shared/Config.luau`](../src/shared/Config.luau) is one table of named
-numbers: `ROUND_SECONDS` 90, `GRACE_SECONDS` 0.25, `BASE_POINTS` 100,
+numbers: `ROUND_SECONDS` 90, `GRACE_SECONDS` 0.75, `BASE_POINTS` 100,
 `POINTS_PER_SECOND_LEFT` 10, `MAX_TRAVEL_SPEED` 32, `PROMPT_DISTANCE` 10,
-`PROMPT_DISTANCE_TOLERANCE` 6, `START_COOLDOWN_SECONDS` 1 and `MAP_NAME`
-`"CampusMap"`. A playtest note such as "the timer feels too long" becomes a
+`PROMPT_DISTANCE_TOLERANCE` 6, `PROMPT_HOLD_SECONDS` 0.25,
+`START_COOLDOWN_SECONDS` 1 and `MAP_NAME` `"CampusMap"`. The grace is
+longer than the prompt hold because a prompt only fires once its hold
+finishes, and the message still has to reach the server. A playtest note such as "the timer feels too long" becomes a
 one-line edit. The file requires nothing, so the tests can load it outside
 Studio. Its last line, `return table.freeze(Config)`, makes the table
 read-only: a script that tries `Config.ROUND_SECONDS = 10` gets an error
@@ -178,8 +180,10 @@ map contract: `CampusMap` must hold `StartPad`, `Depot` and a
 - **`asPart`**: a BasePart stands for itself, a Model for its
   `PrimaryPart`, so a Blender model can later replace a plain part.
 - **`find`** returns the parts and a list of problems. Missing essentials
-  are fatal; a child that is not a part, or a duplicate name, is skipped
-  with a warning.
+  are fatal, and so is an essential part that is not anchored (`isFixed`):
+  a loose part is simulated by a nearby player's device, so a cheater could
+  drag a mailbox next to the Depot. A child that is not a part, or a
+  duplicate name, is skipped with a warning.
 - **`createPrompts`** puts "Pick up package" on the Depot and "Deliver
   package" on each destination. Every prompt gets the tag
   `CampusDeliveryDashPrompt` and a `Kind` attribute (`Depot` or
@@ -234,8 +238,10 @@ at once.
   press during a round, and says "Wait until your character has respawned."
   without a living character. Then it calls `chooseTarget` (with
   `random:NextInteger`) and `RoundLogic.start`, uses `PivotTo` to put the
-  character just above the `StartPad` facing the Depot (so scores are
-  comparable), and calls `scheduleTimeUp`.
+  character on the `StartPad` facing the Depot (so scores are comparable),
+  and calls `scheduleTimeUp`. **`nextStartCFrame`** takes the three spots in
+  `START_SPOTS` in turn, so two players who start together do not land
+  inside each other.
 - **`onDepotTriggered`** and **`onDestinationTriggered`** silently ignore a
   trigger without a session, a living character or `isNear`, then call
   `RoundLogic`. A delivery passes `minTravelSeconds = distance(mailbox,
@@ -302,14 +308,19 @@ the countdown (`hud.tick`) and the guide line (`marker.update`).
 ## 11. Hud.luau
 
 [`src/client/Hud.luau`](../src/client/Hud.luau) builds the interface in
-code, so it can be reviewed as text: a top bar (objective and timer), a
-message line, and a centre panel with one button.
+code, so it can be reviewed as text: a top bar (the timer in the middle,
+the objective under it), a message line, and a centre panel with one button.
 
 - **`ResetOnSpawn = false`** keeps the HUD when the character respawns.
 - **The debounce** ignores presses within `BUTTON_DEBOUNCE_SECONDS` (0.5).
 - **`render`** shows the top bar during a round, otherwise the panel:
   "Delivered!" or "New best!" with **Play again**, "Time's up!" with **Try
-  again**, or the title with **Start delivery**.
+  again**, or the title with **Start delivery**. It remembers the last
+  running step in `lastRunningPhase`, so a time-out before pickup says
+  "You didn't reach the Depot in time."
+- **Messages** from the server go on the message line during a round and
+  into the yellow `Status` label inside the panel otherwise, so they are
+  never hidden behind the panel.
 - **`tick`** sets the timer text every frame, red at 10 seconds or less.
 - **`formatClock`** rounds up with `math.ceil` and formats `"%d:%02d"`: 90
   shows 1:30, 42.7 shows 0:43, 0.2 shows 0:01, and only 0 shows 0:00.
@@ -349,12 +360,12 @@ starts rounds at `T = 1000`, and has the helpers `startedRound` and
 `carryingRound` (picked up at `T + 5`). After `tools/install-dev-tools.sh`,
 run just the unit tests from the project folder with
 `.tools/bin/luau tests/run.luau`. Each test prints `ok` or `FAIL`, then a
-total such as `30 passed, 0 failed`. A failure (`ok` lines left out):
+total such as `36 passed, 0 failed`. A failure (`ok` lines left out):
 
 ```
   FAIL  Config: a round lasts 90 seconds, as the project brief specifies
-        ./tests/Config.spec.luau:12: ROUND_SECONDS: expected 90, got 60
-29 passed, 1 failed
+        ./tests/Config.spec.luau:14: ROUND_SECONDS: expected 90, got 60
+35 passed, 1 failed
 1 test(s) failed
 ```
 
@@ -363,10 +374,11 @@ then expected against actual. The stack trace after it is only the runner.
 
 **Q13.1 Why does `RoundLogic.spec` use its own `RULES` instead of `Config`?**
 <details><summary>Answer</summary>So the rule tests use known numbers and do not break when you
-tune Config. <code>Config.spec</code> guards the values the brief depends on.</details>
+tune Config. <code>Config.spec</code> guards the round length the brief promises and how the
+values relate to each other.</details>
 
 **Q13.2 In the failure above, where is the bug?**
-<details><summary>Answer</summary>In <code>Config.luau</code> (60, not 90). <code>Config.spec.luau:12</code> is just the check that caught it.</details>
+<details><summary>Answer</summary>In <code>Config.luau</code> (60, not 90). <code>Config.spec.luau:14</code> is just the check that caught it.</details>
 
 ## Try it yourself
 
@@ -383,11 +395,15 @@ the Studio installer as out of date until you run `tools/check.sh --fix`.
    score with 42.7 seconds left. *Expected:* 100 + 42 × 5 = 310, and every
    test still passes (why? see Q13.1). To see it in a round, run
    `tools/check.sh --fix` and reinstall ([`SETUP.md`](SETUP.md)). Revert.
-3. **Deliver exactly at the deadline.** In `tests/RoundLogic.spec.luau`,
-   copy the test "a delivery inside the grace period still counts, for
-   base points" and make it deliver at `T + 90`. Predict first.
-   *Expected:* 31 passed, with a score of 100: no whole seconds are left,
-   but the grace period has not run out. This test is worth keeping.
+3. **No grace at all.** In `tests/RoundLogic.spec.luau`, change
+   `GRACE_SECONDS = 0.25` in the `RULES` table to `0`, predict which tests
+   fail, then run them. *Expected:* 3 failures, "the last moment of the
+   grace period still counts", "a delivery inside the grace period still
+   counts, for base points" and "expire does nothing before the deadline
+   and grace period" (33 passed). "A delivery exactly at the deadline
+   scores base points" still passes: why? (The time-up check is
+   `now > deadline + grace`, and at exactly the deadline that is false.)
+   Revert.
 4. **A seventh destination.** Add an entry to `BUILDINGS` in
    `MapBuilder.luau`, for example `id = "Observatory"` at
    `Vector3.new(-150, 0, 200)`, with a `displayName`, `size` and `color`

@@ -58,6 +58,10 @@ can review a diff or exported files while the first one works.
   language a beginner can follow.
 - If you change a contract (files, remotes, map objects, round rules),
   update `docs/ARCHITECTURE.md` in the same change.
+- Python in `tools/` and `tests/` must run on Python 3.9, the version that
+  comes with macOS's command line developer tools. Keep
+  `from __future__ import annotations` and avoid newer syntax such as
+  `match` statements.
 
 ### Evidence, not claims
 - Run `tools/check.sh` before saying a change is done, and report what it
@@ -101,7 +105,7 @@ The owner is learning. After each change:
 
 | Command | What it does |
 |---|---|
-| `tools/install-dev-tools.sh` | One-time download of the pinned checking tools into `.tools/` (macOS on Apple Silicon or Linux). |
+| `tools/install-dev-tools.sh` | One-time download of the pinned checking tools into `.tools/` (macOS 26+ on Apple Silicon, or Linux x86_64). |
 | `tools/check.sh` | Runs every automated check. Must pass before a change is done. |
 | `tools/check.sh --fix` | Formats Luau files and regenerates the Studio installer, then checks. |
 | `.tools/bin/luau tests/run.luau` | Runs only the Luau unit tests. |

@@ -180,8 +180,10 @@ Per prop:
   attribute on the Model, and its `PrimaryPart` set to the mailbox box.
   The **Deliver package** prompt and green beacon appear at the centre of
   that part, and the server's distance check uses its position and size, so
-  keep it where the old box was. Delete the old `MailboxPost` if your
-  mailbox has its own post.
+  keep it where the old box was. The `Depot`, `StartPad` and every mailbox
+  part must be **Anchored** (or welded to an anchored part); otherwise the
+  game refuses to start, because a loose part could be dragged around by a
+  cheater. Delete the old `MailboxPost` if your mailbox has its own post.
 - **Carried package:** put one part named `PackageTemplate` directly in
   `ServerStorage`. It must be a single BasePart, such as a MeshPart; a Model
   is ignored and the brown box is used instead. The script clones it and
@@ -193,7 +195,8 @@ Per prop:
 Then press **Play**. The Output window should show
 `[CampusDeliveryDash] Ready: 6 destinations, 90-second rounds.` and no
 `Map problem` lines. A line ending `use a part, or a Model with a
-PrimaryPart` usually means a Model has no PrimaryPart; fewer than 6
+PrimaryPart` usually means a Model has no PrimaryPart; one ending `must be
+Anchored (or welded to an anchored part)` names a loose part; fewer than 6
 destinations means a mailbox was ignored or is missing. Re-run T1, T2, T4
 and T6 in [TEST-PLAN.md](TEST-PLAN.md) (T15 too if you use streaming),
 record the results in [STATUS.md](../STATUS.md), and save the place.

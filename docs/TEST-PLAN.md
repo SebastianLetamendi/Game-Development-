@@ -22,7 +22,7 @@ says, look for the same name in the other tabs.
 
 | Tool | Where | Used for |
 |---|---|---|
-| **Play** | Home or Test tab, or F5 (Shift+F5 stops) | You and the server in one window |
+| **Play** | Home or Test tab, or F5 (fn+F5 on a Mac keyboard; add Shift to stop) | You and the server in one window |
 | **Output** | View tab | Script messages: red lines are errors, orange lines are warnings |
 | **Explorer**, **Properties** | View tab | Seeing objects and changing their properties |
 | **Clients and Servers** | Test tab: choose 2 players, then Start | A server window plus one window per player (Player1, Player2) |
@@ -52,9 +52,9 @@ and **Start delivery**. The player list shows **Best** 0.
 2. Follow the beacon to the mailbox and hold **E** at **Deliver package**.
 
 **Expected:**
-- On Start: you jump to the green START pad, the top bar says "Pick up the
-  package at the Depot" and counts down from 1:30, and an orange `DEPOT`
-  beacon (with the distance in studs) and a guide line show the way.
+- On Start: you jump to the green START pad, the top bar counts down from
+  1:30 with "Pick up the package at the Depot" under the time, and an orange
+  `DEPOT` beacon (with the distance in studs) and a guide line show the way.
 - After pickup: you carry a brown box, the top bar says "Deliver the package
   to" plus a building, and a green beacon with its name in capitals (for
   example `SCIENCE HALL`) stands over its mailbox.
@@ -69,10 +69,13 @@ and **Start delivery**. The player list shows **Best** 0.
 **Goal:** the failure path and Try again. **Milestone:** 3.
 1. Start a round, pick up the package and wait. Then click **Try again**.
 
-**Expected:** the timer turns red at 0:10. Just after 0:00 the top bar and
+**Expected:** the timer turns red at 0:10. Less than a second after 0:00
+(the server allows a short grace for a last-moment delivery) the top bar and
 box disappear, and the panel shows **Time's up!**, "The package didn't
 reach" plus the building, the unchanged Best, and **Try again**, which
-starts a new round at 1:30. (Delivering at 0:01 would score exactly 100.)
+starts a new round at 1:30. If you let a round run out without picking up
+the package, the panel says "You didn't reach the Depot in time." instead.
+(Delivering at 0:01 would score exactly 100.)
 
 ## T4. Restart picks a new destination
 **Goal:** replays never repeat the last destination. **Milestones:** 1 and 3.
@@ -120,8 +123,9 @@ it, and the delivery is accepted.
 
 **Expected:** in step 1 the timer keeps running, the orange beacon stays on
 the Depot, the new character has no box, and the round finishes normally.
-In step 2 the message "Wait until your character has respawned." appears
-near the top and no round starts; after the respawn, Play again works.
+In step 2 the message "Wait until your character has respawned." appears in
+yellow on the results panel, just above the button, and no round starts;
+after the respawn, Play again works.
 
 ## T9. Two players at once
 **Goal:** each player has their own round. **Milestones:** 3 and 4.
@@ -131,7 +135,8 @@ near the top and no round starts; after the respawn, Play again works.
 **Expected:** each window has its own timer, destination (chosen separately,
 so they may match), beacon and prompts, and sees the other's carried box.
 Neither round affects the other, each player has their own Best, and the
-server Output has no red lines. Note anything odd when both share a pad.
+server Output has no red lines. If both press Start at the same moment,
+they land side by side on the START pad, not inside each other.
 
 ## T10. A player leaves mid-round
 **Goal:** leaving does not break the game for others. **Milestone:** 4.
@@ -168,10 +173,11 @@ by the joystick, jump button or Roblox's own buttons.
 
 **Expected:** Remotes holds only StartRound, RoundState and GetRoundState;
 none accepts a score. The first run starts an ordinary round, Best
-unchanged; the second does nothing and the timer keeps going. In step 3
-only Player1's own player list shows 99999: Player2 and the server window
-(Players > Player1 > leaderstats) keep the real Best, and the results
-panel shows the server's score and Best. The server Output has no red lines.
+unchanged; the second does nothing and the timer keeps going. In step 3,
+until the delivery only Player1's own player list shows 99999: Player2 and
+the server window (Players > Player1 > leaderstats) keep the real Best.
+After the delivery, the results panel and every player list show the
+server's score and Best. The server Output has no red lines.
 
 ## T13. A teleport delivery is refused
 **Goal:** jumping straight to the mailbox does not count. **Milestone:** 4.
@@ -199,6 +205,8 @@ were too slow: retry before recording a fail.
    `require(game.ServerScriptService.CampusDeliveryDash.MapBuilder).build(workspace)`
 2. Rename Workspace > CampusMap > Depot to `DepotX`. Press **Play**, wait
    30 seconds, then stop, rename it back to `Depot` and play again.
+3. Untick **Anchored** on Workspace > CampusMap > Destinations > Gym, press
+   **Play**, then stop and tick it again.
 
 **Expected:** the first Play warns
 `[CampusDeliveryDash] Map problem: Workspace.CampusMap needs a part named Depot`
@@ -206,7 +214,10 @@ and `[CampusDeliveryDash] The game did not start. Fix the map problems above, th
 with no Ready line. After about 30 seconds of "Connecting to the server...",
 the panel says **Setup problem**, "The game did not start on the server. In
 Studio, open the Output window to see why." The second Play prints the
-Ready line again.
+Ready line again. In step 3 the warning is
+`[CampusDeliveryDash] Map problem: Workspace.CampusMap.Destinations.Gym must be Anchored (or welded to an anchored part)`
+and the game does not start, because a loose mailbox could be dragged
+around by a cheater.
 
 ## T15. Instance streaming
 **Goal:** prompts and the beacon work far away with instance streaming

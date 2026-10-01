@@ -12,7 +12,7 @@ not match, look for the same name in the other tabs.
 
 | What | What it is for | Needed? |
 |---|---|---|
-| A Mac with Apple Silicon | Running the automated checks | Yes |
+| A Mac with Apple Silicon and macOS 26 or newer | Running the automated checks | Yes |
 | A Roblox account and Roblox Studio | Building and playing the game | Yes |
 | Terminal and Git | Commands, downloading the repository, code checkpoints | Yes |
 | Claude Code | The implementer: changes code, can work in Studio through MCP | Recommended |
@@ -29,7 +29,10 @@ The repository is already on GitHub at
 2. Type `git --version`. If macOS offers to install the command line
    developer tools, accept, wait, then try again. They include Python 3,
    which the checks also need.
-3. Make the folders and clone the repository:
+3. Make the folders and clone the repository. If macOS asks whether Terminal
+   may access your Documents folder, click **Allow** (if you clicked Don't
+   Allow, turn Terminal on in System Settings > Privacy & Security > Files &
+   Folders and run the commands again):
 
 ```sh
 mkdir -p ~/Documents/"AI Studio/Places"
@@ -51,12 +54,17 @@ In a new Terminal window, type `cd` and a space, drag the
 Run `tools/install-dev-tools.sh` once, then `tools/check.sh`. The first
 downloads pinned, checksum-verified versions of Luau, luau-lsp, Rojo and
 StyLua into `.tools/` inside the project (ignored by Git); it writes nowhere
-else and needs no password. It needs an Apple Silicon Mac (or Linux, which
-GitHub uses) and stops with `Unsupported platform` on anything else.
+else and needs no password. It needs an Apple Silicon Mac with macOS 26 or
+newer (the pinned Luau build requires it), or Linux x86_64, which GitHub
+uses. On other processors it stops with `Unsupported platform`; on an older
+macOS it installs, but `tools/check.sh` cannot run Luau, so update macOS
+first.
 
 `tools/check.sh` runs six checks and prints `passed` after each. Success ends
-with `All checks passed.` The checks catch typos, type errors and broken
-rules, but never run the game: only playing it in Studio shows that.
+with `All checks passed.` Lines starting with `[INFO]` or `[WARN]` from
+luau-lsp are normal; only a `FAILED:` line means a check failed. The checks
+catch typos, type errors and broken rules, but never run the game: only
+playing it in Studio shows that.
 
 ## Claude Code
 
@@ -213,10 +221,10 @@ now updates whenever a file in `src/` changes. Press Ctrl+C to stop.
    ```
 
 2. A panel titled "Campus Delivery Dash" appears. Click **Start delivery**.
-   Your character moves to the green START pad, the top bar says "Pick up
-   the package at the Depot", and the timer starts at 1:30.
+   Your character moves to the green START pad, the top bar shows the timer
+   starting at 1:30 with "Pick up the package at the Depot" under it.
 3. Follow the orange beacon to the Depot and hold **E** at the
-   **Pick up package** prompt (tap it on a touch screen).
+   **Pick up package** prompt (on a touch screen, touch and hold it briefly).
 4. Follow the green beacon and guide line to the building named in the top
    bar, and hold **E** at **Deliver package** by its blue mailbox.
 5. The results panel says "Delivered!" (or "New best!") with your time,
@@ -240,7 +248,8 @@ require(game.ServerScriptService.CampusDeliveryDash.MapBuilder).build(workspace)
 A `CampusMap` model appears in Workspace. Save the place. From then on the
 server uses your edited `Workspace.CampusMap`. Keep the
 [map contract](ARCHITECTURE.md#map-contract): `StartPad`, `Depot` and the
-`Destinations` folder must stay; everything else is scenery. Map edits live
+`Destinations` folder must stay, and those parts must stay **Anchored**;
+everything else is scenery. Map edits live
 in the place file, not in Git. The installer never touches `CampusMap`, but
 nothing else backs it up either, so keep dated backups.
 
@@ -255,18 +264,45 @@ also works, but check which file Studio has open afterwards so later saves
 do not overwrite the backup. Keep place files in `Places`: `.gitignore`
 excludes `*.rbxl` and `*.rbxlx`, so Git can never restore them.
 
+**One-time Git setup (before your first commit).** Every commit records a
+name and an email, and anyone can read them in this public repository. On
+github.com open Settings > Emails, tick **Keep my email addresses private**,
+and copy the address ending in `@users.noreply.github.com`. Then run, with
+your own values:
+
+```sh
+git config --global user.name "Your GitHub username"
+git config --global user.email "the-noreply-address-you-copied"
+```
+
+Your first `git push` asks for a username and a password, and GitHub does not
+accept your account password there. Create a token instead: on github.com,
+Settings > Developer settings > Personal access tokens > Fine-grained tokens.
+Give it access to this repository only, with **Contents: Read and write**,
+and paste it as the password (Terminal shows nothing while you paste; press
+Return). macOS Keychain remembers it. Never paste the token into a file,
+a chat or an agent prompt.
+
 **Code checkpoints.** Scripts, docs and tools are kept in Git. After a change
-passes `tools/check.sh` and you have played it, commit it:
+passes `tools/check.sh` and you have played it, first look at what would be
+published:
 
 ```sh
 git status
+```
+
+Read the list. If anything in it should not be public (notes with real
+names, anything containing a password, key or token), stop and ask Claude
+Code how to leave it out. Otherwise run these, replacing the example message
+with a short description of your change:
+
+```sh
 git add -A
 git commit -m "Shorten the round timer after the first playtest"
 git push
 ```
 
-Read the `git status` list first, and stop if anything in it should not be
-public. You can also ask Claude Code to commit; it only commits when asked.
+You can also ask Claude Code to commit; it only commits when asked.
 
 **This repository is public.** Never commit passwords, API keys, tokens,
 Roblox cookies, `.env` files, real tester names or personal records. A secret
@@ -296,7 +332,7 @@ Problems specific to this game:
 | `Stop the play test first: the installer only works in Edit mode.` | Press Stop, then run the installer again. |
 | `... already has a CampusMap; delete or rename it first` | The map line already ran. Your map is safe. |
 | `Missing tool: ...` from `tools/check.sh` | Run `tools/install-dev-tools.sh`. For `python3`, accept the developer tools install (see [Get the repository](#get-the-repository)). |
-| `... check(s) failed.` | Run `tools/check.sh --fix`, then `tools/check.sh`, and read the output under each `FAILED:` line. Paste it to Claude Code if it is unclear. |
+| `... check(s) failed.` | Run `tools/check.sh --fix`, then `tools/check.sh`, and read the output just above each `FAILED:` line (between it and the `== ...` heading before it). Paste it to Claude Code if it is unclear. |
 
 ## Later tools
 
