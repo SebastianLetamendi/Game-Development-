@@ -147,6 +147,20 @@ test(suite, "a worse score keeps the best and is not a new best", function()
 	equal(round.newBest, false, "newBest")
 end)
 
+test(suite, "a delivery exactly at the deadline scores base points", function()
+	local round = carryingRound()
+	local ok = RoundLogic.deliver(round, RULES, T + 90, "Library", NO_MIN_TRAVEL)
+	equal(ok, true, "ok")
+	equal(round.lastScore, 100, "lastScore")
+end)
+
+test(suite, "the last moment of the grace period still counts", function()
+	local round = carryingRound()
+	equal(RoundLogic.expire(round, RULES, T + 90.25), false, "not expired yet")
+	local ok = RoundLogic.deliver(round, RULES, T + 90.25, "Library", NO_MIN_TRAVEL)
+	equal(ok, true, "ok")
+end)
+
 test(suite, "a delivery inside the grace period still counts, for base points", function()
 	local round = carryingRound()
 	local ok = RoundLogic.deliver(round, RULES, T + 90.2, "Library", NO_MIN_TRAVEL)
@@ -162,6 +176,34 @@ test(suite, "a delivery after the grace period ends the round as time up", funct
 	equal(round.phase, "TimeUp", "phase")
 	equal(round.lastScore, nil, "lastScore")
 	equal(round.best, 0, "best")
+end)
+
+test(suite, "the wrong address after the grace period is time up, not wrong address", function()
+	local round = carryingRound()
+	local ok, reason = RoundLogic.deliver(round, RULES, T + 91, "Gym", NO_MIN_TRAVEL)
+	equal(ok, false, "ok")
+	equal(reason, "TimeUp", "reason")
+	equal(round.phase, "TimeUp", "phase")
+end)
+
+test(suite, "matching the best score is not a new best", function()
+	local round = carryingRound()
+	RoundLogic.deliver(round, RULES, T + 20, "Library", NO_MIN_TRAVEL) -- 800
+
+	local T2 = T + 100
+	RoundLogic.start(round, RULES, T2, "Gym")
+	RoundLogic.pickUp(round, RULES, T2 + 5)
+	RoundLogic.deliver(round, RULES, T2 + 20, "Gym", NO_MIN_TRAVEL) -- 800 again
+
+	equal(round.lastScore, 800, "lastScore")
+	equal(round.best, 800, "best")
+	equal(round.newBest, false, "newBest")
+end)
+
+test(suite, "no time is left once a round is finished", function()
+	local round = carryingRound()
+	RoundLogic.deliver(round, RULES, T + 30, "Library", NO_MIN_TRAVEL)
+	equal(RoundLogic.timeLeft(round, T + 31), 0, "timeLeft")
 end)
 
 test(suite, "a pickup after the grace period ends the round as time up", function()
@@ -223,15 +265,30 @@ test(suite, "scoreFor rounds seconds down and never goes below base points", fun
 	equal(RoundLogic.scoreFor(RULES, -5), 100, "negative")
 end)
 
-test(suite, "chooseTarget avoids repeating the previous destination", function()
+test(suite, "chooseTarget asks for one random pick among the other destinations", function()
 	local ids = { "Gym", "Library", "Cafeteria" }
+	local expected = { "Gym", "Cafeteria" } -- the list without "Library", in order
 	for index = 1, 2 do
+		local calls = 0
 		local chosen = RoundLogic.chooseTarget(ids, "Library", function(count)
+			calls += 1
 			equal(count, 2, "choices offered")
 			return index
 		end)
-		truthy(chosen ~= "Library", "chosen")
+		equal(calls, 1, "random picks")
+		equal(chosen, expected[index], `pick {index}`)
 	end
+end)
+
+test(suite, "chooseTarget offers every destination on the first round", function()
+	local ids = { "Gym", "Library", "Cafeteria" }
+	local offered = 0
+	local chosen = RoundLogic.chooseTarget(ids, nil, function(count)
+		offered = count
+		return 3
+	end)
+	equal(offered, 3, "choices offered")
+	equal(chosen, "Cafeteria", "chosen")
 end)
 
 test(suite, "chooseTarget repeats when only one destination exists", function()

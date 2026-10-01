@@ -78,20 +78,26 @@ def long_string(text: str) -> str:
     """Wraps text in a Luau long string that reproduces it exactly.
 
     The level (number of '=' signs) is the smallest one whose closing bracket
-    does not appear in the text. A newline is placed straight after the
-    opening bracket because Luau discards a newline in that position, which
-    keeps a leading newline in the text intact.
+    does not appear in the text, including where the text's own last
+    characters would join the closing bracket (text ending in "]" or "]=").
+    A newline is placed straight after the opening bracket because Luau
+    discards a newline in that position, which keeps a leading newline in the
+    text intact.
     """
     level = 0
-    while ("]" + "=" * level + "]") in text:
+    while ("]" + "=" * level + "]") in text + "]":
         level += 1
     equals = "=" * level
     return f"[{equals}[\n{text}]{equals}]"
 
 
 def luau_string(text: str) -> str:
-    """A short double-quoted Luau string literal for names and paths."""
-    return json.dumps(text)
+    """A short double-quoted Luau string literal for names and paths.
+
+    ensure_ascii=False keeps letters such as "u" with an accent as UTF-8:
+    JSON's \\uXXXX escapes are not valid in Luau.
+    """
+    return json.dumps(text, ensure_ascii=False)
 
 
 def render(project: dict) -> str:

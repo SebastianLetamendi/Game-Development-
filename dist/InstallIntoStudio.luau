@@ -43,9 +43,11 @@ local Config = {
 	-- Seconds a player has to pick up the package and deliver it.
 	ROUND_SECONDS = 90,
 	-- Extra seconds the server still accepts a delivery after the timer hits
-	-- zero, so a player who pressed the prompt at 0.1 s is not beaten by
-	-- network delay. The score for a delivery in this window is BASE_POINTS.
-	GRACE_SECONDS = 0.25,
+	-- zero. A prompt only fires when its hold (PROMPT_HOLD_SECONDS) finishes,
+	-- and the message then needs time to reach the server, so this covers the
+	-- hold plus about half a second of network delay. A player who starts
+	-- holding just before 0:00 still gets the delivery, for BASE_POINTS.
+	GRACE_SECONDS = 0.75,
 
 	-- Score ----------------------------------------------------------------
 	-- Points for any successful delivery.
@@ -63,6 +65,9 @@ local Config = {
 	-- Extra studs the server allows when it re-checks that distance, because
 	-- the server sees each character slightly behind where the player sees it.
 	PROMPT_DISTANCE_TOLERANCE = 6,
+	-- How long a prompt key or tap must be held. A short hold stops
+	-- accidental presses. Keep it well below GRACE_SECONDS.
+	PROMPT_HOLD_SECONDS = 0.25,
 	-- Repeated "Start" presses inside this many seconds are ignored.
 	START_COOLDOWN_SECONDS = 1,
 
@@ -712,7 +717,8 @@ end
 local function addHedgeRing(parent: Instance, exitAngles: { number })
 	local radius = PLAZA_RADIUS + 4
 	local segments = 40
-	local gapHalfWidth = math.rad(11)
+	-- Wide enough that no hedge block overlaps the edge of a 10-stud path.
+	local gapHalfWidth = math.rad(13)
 	for i = 0, segments - 1 do
 		local angle = (i + 0.5) / segments * 2 * math.pi
 		local blocked = false
@@ -1011,6 +1017,7 @@ export type Prompts = {
 
 export type PromptSettings = {
 	PROMPT_DISTANCE: number,
+	PROMPT_HOLD_SECONDS: number,
 }
 
 local MapContract = {}
@@ -1031,6 +1038,17 @@ local function asPart(instance: Instance?): BasePart?
 	return nil
 end
 
+-- The parts the rules depend on must not move. An unanchored part is
+-- simulated by a nearby player's computer, so a cheater could drag a mailbox
+-- next to the Depot or carry the Depot away.
+local function isFixed(part: BasePart, problems: { string }): boolean
+	if part:IsGrounded() then
+		return true
+	end
+	table.insert(problems, `{part:GetFullName()} must be Anchored (or welded to an anchored part)`)
+	return false
+end
+
 -- Returns the parts, or nil plus a list of human-readable problems.
 -- Problems that do not stop the game (for example an ignored child) are
 -- returned alongside the parts so the server can warn about them.
@@ -1042,11 +1060,15 @@ function MapContract.find(map: Instance): (MapParts?, { string })
 	if startPad == nil then
 		table.insert(problems, `{map:GetFullName()} needs a part named StartPad`)
 		fatal = true
+	elseif not isFixed(startPad, problems) then
+		fatal = true
 	end
 
 	local depot = asPart(map:FindFirstChild("Depot"))
 	if depot == nil then
 		table.insert(problems, `{map:GetFullName()} needs a part named Depot`)
+		fatal = true
+	elseif not isFixed(depot, problems) then
 		fatal = true
 	end
 
@@ -1071,6 +1093,9 @@ function MapContract.find(map: Instance): (MapParts?, { string })
 					`Ignoring {child:GetFullName()}: another destination has the same name`
 				)
 			else
+				if not isFixed(part, problems) then
+					fatal = true
+				end
 				destinations[child.Name] = part
 				table.insert(destinationIds, child.Name)
 				local label = child:GetAttribute("DisplayName")
@@ -1112,7 +1137,7 @@ local function makePrompt(
 	prompt.Name = "CampusDeliveryDashPrompt"
 	prompt.ActionText = actionText
 	prompt.ObjectText = objectText
-	prompt.HoldDuration = 0.25 -- a short hold stops accidental taps
+	prompt.HoldDuration = settings.PROMPT_HOLD_SECONDS
 	prompt.MaxActivationDistance = settings.PROMPT_DISTANCE
 	prompt.RequiresLineOfSight = false
 	prompt:SetAttribute("Kind", kind)
@@ -1253,14 +1278,13 @@ type Session = {
 }
 
 -- What players are told when the server refuses an action. Reasons that are
--- left out (AlreadyRunning) are ignored silently because they only happen
--- when a button is pressed twice.
+-- left out are not sent as messages: AlreadyRunning only happens when a
+-- button is pressed twice, and TimeUp is explained by the results panel.
 local MESSAGES: { [string]: string } = {
 	NotRunning = "Press Start to begin a delivery.",
 	AlreadyCarrying = "You are already carrying a package.",
 	NotCarrying = "Pick up the package at the Depot first.",
 	TooFast = "Delivery refused: that trip was impossibly fast.",
-	TimeUp = "Time's up! The package was not delivered.",
 	NoCharacter = "Wait until your character has respawned.",
 }
 
@@ -1268,6 +1292,12 @@ local RoundService = {}
 
 local sessions: { [Player]: Session } = {}
 local random = Random.new()
+
+-- Three spots side by side on the StartPad, used in turn, so two players who
+-- start at the same moment are not placed inside each other. They are level
+-- with each other, so no spot is closer to the Depot.
+local START_SPOTS = { 0, -3, 3 }
+local nextStartSpot = 0
 
 local mapParts: MapContract.MapParts
 local remotes: Net.Remotes
@@ -1351,7 +1381,7 @@ end
 local function endRoundIfExpired(session: Session)
 	if RoundLogic.expire(session.round, Config, now()) then
 		PackageVisual.remove(session.player.Character)
-		push(session, MESSAGES.TimeUp)
+		push(session)
 	end
 end
 
@@ -1372,6 +1402,19 @@ local function scheduleTimeUp(session: Session, roundId: number)
 		end
 	end
 	task.delay(Config.ROUND_SECONDS + Config.GRACE_SECONDS, check)
+end
+
+-- Where a character stands when a round starts: the next StartPad spot,
+-- facing the Depot.
+local function nextStartCFrame(): CFrame
+	nextStartSpot = nextStartSpot % #START_SPOTS + 1
+	local pad = mapParts.startPad
+	-- Stay on the pad even if a hand-made pad is narrow.
+	local maxSideways = math.max(0, pad.Size.X / 2 - 1.5)
+	local sideways = math.clamp(START_SPOTS[nextStartSpot], -maxSideways, maxSideways)
+	local position = pad.CFrame:PointToWorldSpace(Vector3.new(sideways, pad.Size.Y / 2 + 3, 0))
+	local depot = mapParts.depot.Position
+	return CFrame.lookAt(position, Vector3.new(depot.X, position.Y, depot.Z))
 end
 
 local function startRound(session: Session)
@@ -1401,14 +1444,11 @@ local function startRound(session: Session)
 		return
 	end
 
-	-- Every round starts from the same spot so scores are comparable.
+	-- Every round starts on the StartPad so scores are comparable.
 	local character = player.Character
 	if character then
 		PackageVisual.remove(character)
-		local padTop = mapParts.startPad.Position
-			+ Vector3.new(0, mapParts.startPad.Size.Y / 2 + 3, 0)
-		local lookAt = Vector3.new(mapParts.depot.Position.X, padTop.Y, mapParts.depot.Position.Z)
-		character:PivotTo(CFrame.lookAt(padTop, lookAt))
+		character:PivotTo(nextStartCFrame())
 	end
 
 	scheduleTimeUp(session, session.round.roundId)
@@ -1430,7 +1470,7 @@ local function onDepotTriggered(player: Player)
 		push(session)
 	elseif reason == "TimeUp" then
 		PackageVisual.remove(player.Character)
-		push(session, MESSAGES.TimeUp)
+		push(session)
 	elseif reason then
 		refuse(session, reason)
 	end
@@ -1451,7 +1491,7 @@ local function onDestinationTriggered(player: Player, targetId: string)
 		push(session)
 	elseif reason == "TimeUp" then
 		PackageVisual.remove(player.Character)
-		push(session, MESSAGES.TimeUp)
+		push(session)
 	elseif reason == "WrongTarget" then
 		local wanted = session.round.targetId
 		local wantedName = if wanted then mapParts.displayNames[wanted] else "another address"
@@ -1596,6 +1636,7 @@ local COLORS = {
 	button = Color3.fromRGB(80, 200, 120),
 	buttonText = Color3.fromRGB(16, 32, 20),
 	warning = Color3.fromRGB(255, 96, 80),
+	status = Color3.fromRGB(255, 214, 120),
 }
 
 local BOLD = Font.fromEnum(Enum.Font.GothamBold)
@@ -1648,34 +1689,33 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	screen.ResetOnSpawn = false -- keep the HUD when the character respawns
 	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Top bar: objective on the left, countdown on the right.
+	-- Top bar: the countdown in the middle with the objective under it. The
+	-- centre stays clear of Roblox's player list (top right) and chat (top
+	-- left), even in a narrow window.
 	local topBar = Instance.new("Frame")
 	topBar.Name = "TopBar"
 	topBar.AnchorPoint = Vector2.new(0.5, 0)
 	topBar.Position = UDim2.new(0.5, 0, 0, 8)
-	topBar.Size = UDim2.new(0.9, 0, 0, 72)
+	topBar.Size = UDim2.new(0.9, 0, 0, 76)
 	topBar.BackgroundColor3 = COLORS.panel
 	topBar.BackgroundTransparency = 0.2
 	topBar.Visible = false
 	addCorner(topBar, 10)
-	addMaxSize(topBar, 480, 72)
+	addMaxSize(topBar, 420, 76)
 	topBar.Parent = screen
 
-	local objectiveLabel = newLabel(topBar, "Objective", BOLD, 24)
-	objectiveLabel.Position = UDim2.new(0, 14, 0, 8)
-	objectiveLabel.Size = UDim2.new(0.72, -14, 1, -16)
-	objectiveLabel.TextXAlignment = Enum.TextXAlignment.Left
+	local timerLabel = newLabel(topBar, "Timer", BOLD, 36)
+	timerLabel.Position = UDim2.new(0, 12, 0, 4)
+	timerLabel.Size = UDim2.new(1, -24, 0, 38)
 
-	local timerLabel = newLabel(topBar, "Timer", BOLD, 40)
-	timerLabel.AnchorPoint = Vector2.new(1, 0)
-	timerLabel.Position = UDim2.new(1, -14, 0, 6)
-	timerLabel.Size = UDim2.new(0.28, -14, 1, -12)
-	timerLabel.TextXAlignment = Enum.TextXAlignment.Right
+	local objectiveLabel = newLabel(topBar, "Objective", BOLD, 20)
+	objectiveLabel.Position = UDim2.new(0, 12, 0, 42)
+	objectiveLabel.Size = UDim2.new(1, -24, 0, 28)
 
-	-- Message line under the top bar.
+	-- Message line under the top bar, used while a round is running.
 	local messageLabel = newLabel(screen, "Message", BOLD, 22)
 	messageLabel.AnchorPoint = Vector2.new(0.5, 0)
-	messageLabel.Position = UDim2.new(0.5, 0, 0, 88)
+	messageLabel.Position = UDim2.new(0.5, 0, 0, 92)
 	messageLabel.Size = UDim2.new(0.9, 0, 0, 40)
 	messageLabel.BackgroundColor3 = COLORS.panel
 	messageLabel.BackgroundTransparency = 0.2
@@ -1688,27 +1728,34 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	panel.Name = "Panel"
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.9, 0, 0, 240)
+	panel.Size = UDim2.new(0.9, 0, 0, 264)
 	panel.BackgroundColor3 = COLORS.panel
 	panel.BackgroundTransparency = 0.1
 	addCorner(panel, 14)
-	addMaxSize(panel, 440, 240)
+	addMaxSize(panel, 440, 264)
 	panel.Parent = screen
 
 	local titleLabel = newLabel(panel, "Title", BOLD, 34)
-	titleLabel.Position = UDim2.new(0, 16, 0, 14)
-	titleLabel.Size = UDim2.new(1, -32, 0, 42)
+	titleLabel.Position = UDim2.new(0, 16, 0, 12)
+	titleLabel.Size = UDim2.new(1, -32, 0, 40)
 
 	local bodyLabel = newLabel(panel, "Body", REGULAR, 20)
-	bodyLabel.Position = UDim2.new(0, 20, 0, 62)
-	bodyLabel.Size = UDim2.new(1, -40, 0, 84)
+	bodyLabel.Position = UDim2.new(0, 20, 0, 56)
+	bodyLabel.Size = UDim2.new(1, -40, 0, 80)
 	bodyLabel.TextColor3 = COLORS.muted
+
+	-- Feedback shown inside the panel, such as "Wait until your character
+	-- has respawned." after pressing the button too early.
+	local statusLabel = newLabel(panel, "Status", BOLD, 18)
+	statusLabel.Position = UDim2.new(0, 20, 0, 140)
+	statusLabel.Size = UDim2.new(1, -40, 0, 26)
+	statusLabel.TextColor3 = COLORS.status
 
 	local button = Instance.new("TextButton")
 	button.Name = "StartButton"
 	button.AnchorPoint = Vector2.new(0.5, 1)
-	button.Position = UDim2.new(0.5, 0, 1, -16)
-	button.Size = UDim2.new(0.8, 0, 0, 56) -- tall enough for a thumb
+	button.Position = UDim2.new(0.5, 0, 1, -14)
+	button.Size = UDim2.new(0.8, 0, 0, 54) -- tall enough for a thumb
 	button.BackgroundColor3 = COLORS.button
 	button.FontFace = BOLD
 	button.TextColor3 = COLORS.buttonText
@@ -1722,6 +1769,7 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	-- Shown until the first snapshot arrives from the server.
 	titleLabel.Text = "Campus Delivery Dash"
 	bodyLabel.Text = "Connecting to the server..."
+	statusLabel.Text = ""
 	button.Text = "Start delivery"
 
 	screen.Parent = playerGui
@@ -1749,12 +1797,22 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 		end)
 	end
 
+	local function hideMessage()
+		messageToken += 1
+		messageLabel.Visible = false
+	end
+
+	-- The step the player was on when the round last ran, so a time-out
+	-- before pickup can say so.
+	local lastRunningPhase: string? = nil
+
 	local function render(snapshot: Net.Snapshot)
 		local running = isRunning(snapshot.phase)
 		topBar.Visible = running
 		panel.Visible = not running
 
 		if running then
+			lastRunningPhase = snapshot.phase
 			objectiveLabel.Text = snapshot.objective or ""
 		elseif snapshot.phase == "Delivered" then
 			titleLabel.Text = if snapshot.newBest then "New best!" else "Delivered!"
@@ -1768,11 +1826,16 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 			button.Text = "Play again"
 		elseif snapshot.phase == "TimeUp" then
 			titleLabel.Text = "Time's up!"
-			bodyLabel.Text = string.format(
-				"The package didn't reach %s.\nBest %d",
-				snapshot.targetName or "the address",
-				snapshot.best
-			)
+			if lastRunningPhase == "ToPickup" then
+				bodyLabel.Text =
+					string.format("You didn't reach the Depot in time.\nBest %d", snapshot.best)
+			else
+				bodyLabel.Text = string.format(
+					"The package didn't reach %s.\nBest %d",
+					snapshot.targetName or "the address",
+					snapshot.best
+				)
+			end
 			button.Text = "Try again"
 		else
 			titleLabel.Text = "Campus Delivery Dash"
@@ -1783,11 +1846,17 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 			button.Text = "Start delivery"
 		end
 
-		-- The results screen already explains a time-out, so only show
-		-- messages that add something.
+		-- Feedback goes on the message line during a round and inside the
+		-- panel otherwise, so it is never hidden behind the panel.
 		local message = snapshot.message
-		if message and snapshot.phase ~= "TimeUp" then
-			showMessage(message)
+		if running then
+			statusLabel.Text = ""
+			if message then
+				showMessage(message)
+			end
+		else
+			hideMessage()
+			statusLabel.Text = message or ""
 		end
 	end
 
@@ -1804,6 +1873,7 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	local function showSetupProblem()
 		topBar.Visible = false
 		panel.Visible = true
+		statusLabel.Text = ""
 		titleLabel.Text = "Setup problem"
 		bodyLabel.Text =
 			"The game did not start on the server. In Studio, open the Output window to see why."

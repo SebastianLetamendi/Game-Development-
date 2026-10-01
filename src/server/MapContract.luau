@@ -36,6 +36,7 @@ export type Prompts = {
 
 export type PromptSettings = {
 	PROMPT_DISTANCE: number,
+	PROMPT_HOLD_SECONDS: number,
 }
 
 local MapContract = {}
@@ -56,6 +57,17 @@ local function asPart(instance: Instance?): BasePart?
 	return nil
 end
 
+-- The parts the rules depend on must not move. An unanchored part is
+-- simulated by a nearby player's computer, so a cheater could drag a mailbox
+-- next to the Depot or carry the Depot away.
+local function isFixed(part: BasePart, problems: { string }): boolean
+	if part:IsGrounded() then
+		return true
+	end
+	table.insert(problems, `{part:GetFullName()} must be Anchored (or welded to an anchored part)`)
+	return false
+end
+
 -- Returns the parts, or nil plus a list of human-readable problems.
 -- Problems that do not stop the game (for example an ignored child) are
 -- returned alongside the parts so the server can warn about them.
@@ -67,11 +79,15 @@ function MapContract.find(map: Instance): (MapParts?, { string })
 	if startPad == nil then
 		table.insert(problems, `{map:GetFullName()} needs a part named StartPad`)
 		fatal = true
+	elseif not isFixed(startPad, problems) then
+		fatal = true
 	end
 
 	local depot = asPart(map:FindFirstChild("Depot"))
 	if depot == nil then
 		table.insert(problems, `{map:GetFullName()} needs a part named Depot`)
+		fatal = true
+	elseif not isFixed(depot, problems) then
 		fatal = true
 	end
 
@@ -96,6 +112,9 @@ function MapContract.find(map: Instance): (MapParts?, { string })
 					`Ignoring {child:GetFullName()}: another destination has the same name`
 				)
 			else
+				if not isFixed(part, problems) then
+					fatal = true
+				end
 				destinations[child.Name] = part
 				table.insert(destinationIds, child.Name)
 				local label = child:GetAttribute("DisplayName")
@@ -137,7 +156,7 @@ local function makePrompt(
 	prompt.Name = "CampusDeliveryDashPrompt"
 	prompt.ActionText = actionText
 	prompt.ObjectText = objectText
-	prompt.HoldDuration = 0.25 -- a short hold stops accidental taps
+	prompt.HoldDuration = settings.PROMPT_HOLD_SECONDS
 	prompt.MaxActivationDistance = settings.PROMPT_DISTANCE
 	prompt.RequiresLineOfSight = false
 	prompt:SetAttribute("Kind", kind)

@@ -29,6 +29,7 @@ local COLORS = {
 	button = Color3.fromRGB(80, 200, 120),
 	buttonText = Color3.fromRGB(16, 32, 20),
 	warning = Color3.fromRGB(255, 96, 80),
+	status = Color3.fromRGB(255, 214, 120),
 }
 
 local BOLD = Font.fromEnum(Enum.Font.GothamBold)
@@ -81,34 +82,33 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	screen.ResetOnSpawn = false -- keep the HUD when the character respawns
 	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Top bar: objective on the left, countdown on the right.
+	-- Top bar: the countdown in the middle with the objective under it. The
+	-- centre stays clear of Roblox's player list (top right) and chat (top
+	-- left), even in a narrow window.
 	local topBar = Instance.new("Frame")
 	topBar.Name = "TopBar"
 	topBar.AnchorPoint = Vector2.new(0.5, 0)
 	topBar.Position = UDim2.new(0.5, 0, 0, 8)
-	topBar.Size = UDim2.new(0.9, 0, 0, 72)
+	topBar.Size = UDim2.new(0.9, 0, 0, 76)
 	topBar.BackgroundColor3 = COLORS.panel
 	topBar.BackgroundTransparency = 0.2
 	topBar.Visible = false
 	addCorner(topBar, 10)
-	addMaxSize(topBar, 480, 72)
+	addMaxSize(topBar, 420, 76)
 	topBar.Parent = screen
 
-	local objectiveLabel = newLabel(topBar, "Objective", BOLD, 24)
-	objectiveLabel.Position = UDim2.new(0, 14, 0, 8)
-	objectiveLabel.Size = UDim2.new(0.72, -14, 1, -16)
-	objectiveLabel.TextXAlignment = Enum.TextXAlignment.Left
+	local timerLabel = newLabel(topBar, "Timer", BOLD, 36)
+	timerLabel.Position = UDim2.new(0, 12, 0, 4)
+	timerLabel.Size = UDim2.new(1, -24, 0, 38)
 
-	local timerLabel = newLabel(topBar, "Timer", BOLD, 40)
-	timerLabel.AnchorPoint = Vector2.new(1, 0)
-	timerLabel.Position = UDim2.new(1, -14, 0, 6)
-	timerLabel.Size = UDim2.new(0.28, -14, 1, -12)
-	timerLabel.TextXAlignment = Enum.TextXAlignment.Right
+	local objectiveLabel = newLabel(topBar, "Objective", BOLD, 20)
+	objectiveLabel.Position = UDim2.new(0, 12, 0, 42)
+	objectiveLabel.Size = UDim2.new(1, -24, 0, 28)
 
-	-- Message line under the top bar.
+	-- Message line under the top bar, used while a round is running.
 	local messageLabel = newLabel(screen, "Message", BOLD, 22)
 	messageLabel.AnchorPoint = Vector2.new(0.5, 0)
-	messageLabel.Position = UDim2.new(0.5, 0, 0, 88)
+	messageLabel.Position = UDim2.new(0.5, 0, 0, 92)
 	messageLabel.Size = UDim2.new(0.9, 0, 0, 40)
 	messageLabel.BackgroundColor3 = COLORS.panel
 	messageLabel.BackgroundTransparency = 0.2
@@ -121,27 +121,34 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	panel.Name = "Panel"
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.9, 0, 0, 240)
+	panel.Size = UDim2.new(0.9, 0, 0, 264)
 	panel.BackgroundColor3 = COLORS.panel
 	panel.BackgroundTransparency = 0.1
 	addCorner(panel, 14)
-	addMaxSize(panel, 440, 240)
+	addMaxSize(panel, 440, 264)
 	panel.Parent = screen
 
 	local titleLabel = newLabel(panel, "Title", BOLD, 34)
-	titleLabel.Position = UDim2.new(0, 16, 0, 14)
-	titleLabel.Size = UDim2.new(1, -32, 0, 42)
+	titleLabel.Position = UDim2.new(0, 16, 0, 12)
+	titleLabel.Size = UDim2.new(1, -32, 0, 40)
 
 	local bodyLabel = newLabel(panel, "Body", REGULAR, 20)
-	bodyLabel.Position = UDim2.new(0, 20, 0, 62)
-	bodyLabel.Size = UDim2.new(1, -40, 0, 84)
+	bodyLabel.Position = UDim2.new(0, 20, 0, 56)
+	bodyLabel.Size = UDim2.new(1, -40, 0, 80)
 	bodyLabel.TextColor3 = COLORS.muted
+
+	-- Feedback shown inside the panel, such as "Wait until your character
+	-- has respawned." after pressing the button too early.
+	local statusLabel = newLabel(panel, "Status", BOLD, 18)
+	statusLabel.Position = UDim2.new(0, 20, 0, 140)
+	statusLabel.Size = UDim2.new(1, -40, 0, 26)
+	statusLabel.TextColor3 = COLORS.status
 
 	local button = Instance.new("TextButton")
 	button.Name = "StartButton"
 	button.AnchorPoint = Vector2.new(0.5, 1)
-	button.Position = UDim2.new(0.5, 0, 1, -16)
-	button.Size = UDim2.new(0.8, 0, 0, 56) -- tall enough for a thumb
+	button.Position = UDim2.new(0.5, 0, 1, -14)
+	button.Size = UDim2.new(0.8, 0, 0, 54) -- tall enough for a thumb
 	button.BackgroundColor3 = COLORS.button
 	button.FontFace = BOLD
 	button.TextColor3 = COLORS.buttonText
@@ -155,6 +162,7 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	-- Shown until the first snapshot arrives from the server.
 	titleLabel.Text = "Campus Delivery Dash"
 	bodyLabel.Text = "Connecting to the server..."
+	statusLabel.Text = ""
 	button.Text = "Start delivery"
 
 	screen.Parent = playerGui
@@ -182,12 +190,22 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 		end)
 	end
 
+	local function hideMessage()
+		messageToken += 1
+		messageLabel.Visible = false
+	end
+
+	-- The step the player was on when the round last ran, so a time-out
+	-- before pickup can say so.
+	local lastRunningPhase: string? = nil
+
 	local function render(snapshot: Net.Snapshot)
 		local running = isRunning(snapshot.phase)
 		topBar.Visible = running
 		panel.Visible = not running
 
 		if running then
+			lastRunningPhase = snapshot.phase
 			objectiveLabel.Text = snapshot.objective or ""
 		elseif snapshot.phase == "Delivered" then
 			titleLabel.Text = if snapshot.newBest then "New best!" else "Delivered!"
@@ -201,11 +219,16 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 			button.Text = "Play again"
 		elseif snapshot.phase == "TimeUp" then
 			titleLabel.Text = "Time's up!"
-			bodyLabel.Text = string.format(
-				"The package didn't reach %s.\nBest %d",
-				snapshot.targetName or "the address",
-				snapshot.best
-			)
+			if lastRunningPhase == "ToPickup" then
+				bodyLabel.Text =
+					string.format("You didn't reach the Depot in time.\nBest %d", snapshot.best)
+			else
+				bodyLabel.Text = string.format(
+					"The package didn't reach %s.\nBest %d",
+					snapshot.targetName or "the address",
+					snapshot.best
+				)
+			end
 			button.Text = "Try again"
 		else
 			titleLabel.Text = "Campus Delivery Dash"
@@ -216,11 +239,17 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 			button.Text = "Start delivery"
 		end
 
-		-- The results screen already explains a time-out, so only show
-		-- messages that add something.
+		-- Feedback goes on the message line during a round and inside the
+		-- panel otherwise, so it is never hidden behind the panel.
 		local message = snapshot.message
-		if message and snapshot.phase ~= "TimeUp" then
-			showMessage(message)
+		if running then
+			statusLabel.Text = ""
+			if message then
+				showMessage(message)
+			end
+		else
+			hideMessage()
+			statusLabel.Text = message or ""
 		end
 	end
 
@@ -237,6 +266,7 @@ function Hud.create(playerGui: Instance, onStartPressed: () -> ()): Hud
 	local function showSetupProblem()
 		topBar.Visible = false
 		panel.Visible = true
+		statusLabel.Text = ""
 		titleLabel.Text = "Setup problem"
 		bodyLabel.Text =
 			"The game did not start on the server. In Studio, open the Output window to see why."

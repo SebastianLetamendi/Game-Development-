@@ -164,28 +164,42 @@ def find_luau() -> str | None:
     return shutil.which("luau")
 
 
-class LongStringTests(unittest.TestCase):
-    def decode(self, literal: str) -> str:
-        """Interprets a long string literal the way Luau does."""
-        opening_end = literal.index("[", 1) + 1
-        level = opening_end - 2
-        body = literal[opening_end : len(literal) - (level + 2)]
-        if body.startswith("\n"):
-            body = body[1:]
-        return body
+def luau_accepts_as_equal(literal: str, expected: str) -> bool:
+    """Asks the real Luau interpreter whether `literal` evaluates to `expected`."""
+    luau = find_luau()
+    if luau is None:
+        raise unittest.SkipTest("luau is not installed; run tools/install-dev-tools.sh")
+    with tempfile.TemporaryDirectory() as directory:
+        script = Path(directory) / "literal.luau"
+        script.write_text(
+            f"print({literal} == {build_installer.luau_string(expected)})\n", encoding="utf-8"
+        )
+        result = subprocess.run([luau, str(script)], capture_output=True, text=True, timeout=30)
+    return result.returncode == 0 and result.stdout.strip() == "true"
 
+
+class LongStringTests(unittest.TestCase):
     def test_plain_text_uses_level_zero(self):
-        self.assertTrue(build_installer.long_string("print(1)").startswith("[[\n"))
+        literal = build_installer.long_string("print(1)")
+        self.assertTrue(literal.startswith("[[\n"))
+        self.assertTrue(luau_accepts_as_equal(literal, "print(1)"))
 
     def test_text_containing_closing_brackets_uses_a_higher_level(self):
         text = "local t = a[b[1]] -- ]=] too"
         literal = build_installer.long_string(text)
         self.assertTrue(literal.startswith("[==[\n"))
-        self.assertEqual(self.decode(literal), text)
+        self.assertTrue(luau_accepts_as_equal(literal, text))
 
-    def test_leading_newline_and_trailing_bracket_survive(self):
-        text = "\nfirst line\nlast]"
-        self.assertEqual(self.decode(build_installer.long_string(text)), text)
+    def test_awkward_text_round_trips_through_luau(self):
+        for text in ["\nfirst line\nlast]", "x = t[1]", "a]]b ]=", "x]=]", "]", "", "tail]="]:
+            with self.subTest(text=text):
+                self.assertTrue(luau_accepts_as_equal(build_installer.long_string(text), text))
+
+
+class LuauStringTests(unittest.TestCase):
+    def test_non_ascii_names_are_valid_luau(self):
+        self.assertTrue(luau_accepts_as_equal('"Men\u00fa"', "Men\u00fa"))
+        self.assertEqual(build_installer.luau_string("Men\u00fa"), '"Men\u00fa"')
 
 
 class ScriptClassTests(unittest.TestCase):

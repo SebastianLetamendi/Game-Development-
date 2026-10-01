@@ -245,7 +245,8 @@ end
 local function addHedgeRing(parent: Instance, exitAngles: { number })
 	local radius = PLAZA_RADIUS + 4
 	local segments = 40
-	local gapHalfWidth = math.rad(11)
+	-- Wide enough that no hedge block overlaps the edge of a 10-stud path.
+	local gapHalfWidth = math.rad(13)
 	for i = 0, segments - 1 do
 		local angle = (i + 0.5) / segments * 2 * math.pi
 		local blocked = false

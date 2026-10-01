@@ -31,14 +31,13 @@ type Session = {
 }
 
 -- What players are told when the server refuses an action. Reasons that are
--- left out (AlreadyRunning) are ignored silently because they only happen
--- when a button is pressed twice.
+-- left out are not sent as messages: AlreadyRunning only happens when a
+-- button is pressed twice, and TimeUp is explained by the results panel.
 local MESSAGES: { [string]: string } = {
 	NotRunning = "Press Start to begin a delivery.",
 	AlreadyCarrying = "You are already carrying a package.",
 	NotCarrying = "Pick up the package at the Depot first.",
 	TooFast = "Delivery refused: that trip was impossibly fast.",
-	TimeUp = "Time's up! The package was not delivered.",
 	NoCharacter = "Wait until your character has respawned.",
 }
 
@@ -46,6 +45,12 @@ local RoundService = {}
 
 local sessions: { [Player]: Session } = {}
 local random = Random.new()
+
+-- Three spots side by side on the StartPad, used in turn, so two players who
+-- start at the same moment are not placed inside each other. They are level
+-- with each other, so no spot is closer to the Depot.
+local START_SPOTS = { 0, -3, 3 }
+local nextStartSpot = 0
 
 local mapParts: MapContract.MapParts
 local remotes: Net.Remotes
@@ -129,7 +134,7 @@ end
 local function endRoundIfExpired(session: Session)
 	if RoundLogic.expire(session.round, Config, now()) then
 		PackageVisual.remove(session.player.Character)
-		push(session, MESSAGES.TimeUp)
+		push(session)
 	end
 end
 
@@ -150,6 +155,19 @@ local function scheduleTimeUp(session: Session, roundId: number)
 		end
 	end
 	task.delay(Config.ROUND_SECONDS + Config.GRACE_SECONDS, check)
+end
+
+-- Where a character stands when a round starts: the next StartPad spot,
+-- facing the Depot.
+local function nextStartCFrame(): CFrame
+	nextStartSpot = nextStartSpot % #START_SPOTS + 1
+	local pad = mapParts.startPad
+	-- Stay on the pad even if a hand-made pad is narrow.
+	local maxSideways = math.max(0, pad.Size.X / 2 - 1.5)
+	local sideways = math.clamp(START_SPOTS[nextStartSpot], -maxSideways, maxSideways)
+	local position = pad.CFrame:PointToWorldSpace(Vector3.new(sideways, pad.Size.Y / 2 + 3, 0))
+	local depot = mapParts.depot.Position
+	return CFrame.lookAt(position, Vector3.new(depot.X, position.Y, depot.Z))
 end
 
 local function startRound(session: Session)
@@ -179,14 +197,11 @@ local function startRound(session: Session)
 		return
 	end
 
-	-- Every round starts from the same spot so scores are comparable.
+	-- Every round starts on the StartPad so scores are comparable.
 	local character = player.Character
 	if character then
 		PackageVisual.remove(character)
-		local padTop = mapParts.startPad.Position
-			+ Vector3.new(0, mapParts.startPad.Size.Y / 2 + 3, 0)
-		local lookAt = Vector3.new(mapParts.depot.Position.X, padTop.Y, mapParts.depot.Position.Z)
-		character:PivotTo(CFrame.lookAt(padTop, lookAt))
+		character:PivotTo(nextStartCFrame())
 	end
 
 	scheduleTimeUp(session, session.round.roundId)
@@ -208,7 +223,7 @@ local function onDepotTriggered(player: Player)
 		push(session)
 	elseif reason == "TimeUp" then
 		PackageVisual.remove(player.Character)
-		push(session, MESSAGES.TimeUp)
+		push(session)
 	elseif reason then
 		refuse(session, reason)
 	end
@@ -229,7 +244,7 @@ local function onDestinationTriggered(player: Player, targetId: string)
 		push(session)
 	elseif reason == "TimeUp" then
 		PackageVisual.remove(player.Character)
-		push(session, MESSAGES.TimeUp)
+		push(session)
 	elseif reason == "WrongTarget" then
 		local wanted = session.round.targetId
 		local wantedName = if wanted then mapParts.displayNames[wanted] else "another address"

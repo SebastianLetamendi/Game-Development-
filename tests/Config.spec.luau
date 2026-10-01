@@ -1,6 +1,8 @@
 --!strict
--- Guards the values the project brief depends on, so an accidental edit to
--- Config shows up as a failing test instead of a confusing playtest.
+-- Guards the round length the project brief promises and the relationships
+-- between values, so an accidental edit to Config shows up as a failing test
+-- instead of a confusing playtest. Points are deliberately not pinned: they
+-- are meant to be tuned after playtests.
 
 local TestKit = require("./TestKit")
 local Config = require("../src/shared/Config")
@@ -22,6 +24,7 @@ test(suite, "every number is positive", function()
 			"MAX_TRAVEL_SPEED",
 			"PROMPT_DISTANCE",
 			"PROMPT_DISTANCE_TOLERANCE",
+			"PROMPT_HOLD_SECONDS",
 			"START_COOLDOWN_SECONDS",
 		}
 	do
@@ -30,8 +33,14 @@ test(suite, "every number is positive", function()
 	end
 end)
 
-test(suite, "the grace period is a small fraction of a round", function()
-	truthy(Config.GRACE_SECONDS < 1, "GRACE_SECONDS")
+test(suite, "the grace period is short but longer than a prompt hold", function()
+	truthy(Config.GRACE_SECONDS < 1, "GRACE_SECONDS below one second")
+	-- A prompt fires only after its hold, so the grace must cover the hold
+	-- and leave time for the message to reach the server.
+	truthy(
+		Config.GRACE_SECONDS >= Config.PROMPT_HOLD_SECONDS + 0.25,
+		"GRACE_SECONDS covers the hold"
+	)
 end)
 
 test(suite, "honest players are never refused as too fast", function()
